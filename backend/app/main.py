@@ -10,10 +10,20 @@ from app.api.routes import auth, public, admin, worker
 
 limiter = Limiter(key_func=get_remote_address)
 
+# Conditionally disable interactive docs in production
+docs_kwargs = {}
+if settings.is_production:
+    docs_kwargs = {
+        "docs_url": None,
+        "redoc_url": None,
+    }
+
 app = FastAPI(
     title="Laundry Bros API",
     description="Inventory Management, Billing & Order ERP for Laundry Businesses",
     version="1.0.0",
+    root_path=settings.API_PREFIX,
+    **docs_kwargs,
 )
 
 app.state.limiter = limiter
@@ -38,4 +48,9 @@ app.include_router(worker.router)
 @app.get("/api/health")
 def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "Laundry Bros API"}
+    return {
+        "status": "healthy",
+        "service": "Laundry Bros API",
+        "environment": settings.ENVIRONMENT,
+    }
+

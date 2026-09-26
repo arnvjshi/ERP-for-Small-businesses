@@ -1,9 +1,14 @@
 /**
  * API client for communicating with the Laundry Bros backend.
  * All API calls go through this module.
+ *
+ * NEXT_PUBLIC_API_URL controls where API requests go:
+ * - Empty or unset: calls go to same origin (for Vercel Services / nginx proxy)
+ * - "http://localhost:8000": for local development
+ * - "https://api.example.com": for separate backend deployment
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 class ApiClient {
   constructor() {

@@ -43,6 +43,7 @@ postgres_data/
 
 # Docker
 docker-data/
+nginx/ssl/
 
 CLAUDE.md
 GEMINI.md
