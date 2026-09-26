@@ -1,6 +1,7 @@
 import './globals.css';
 import { Toaster } from 'react-hot-toast';
 import { AuthProvider } from '@/lib/auth';
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata = {
   title: 'Laundry Bros — Professional Laundry Care',
@@ -11,6 +12,7 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
+        <Analytics />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -32,6 +34,6 @@ export default function RootLayout({ children }) {
           />
         </AuthProvider>
       </body>
-    </html>
+    </html >
   );
 }

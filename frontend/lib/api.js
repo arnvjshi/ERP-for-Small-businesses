@@ -2,17 +2,25 @@
  * API client for communicating with the Laundry Bros backend.
  * All API calls go through this module.
  *
- * NEXT_PUBLIC_API_URL controls where API requests go:
- * - Empty or unset: calls go to same origin (for Vercel Services / nginx proxy)
- * - "http://localhost:8000": for local development
- * - "https://api.example.com": for separate backend deployment
+ * Base URL is configured dynamically via process.env.NEXT_PUBLIC_API_URL from .env.
+ * If not set or empty, requests use relative paths (same origin).
  */
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || '';
-
 class ApiClient {
-  constructor() {
-    this.baseUrl = API_URL;
+  get baseUrl() {
+    return (process.env.NEXT_PUBLIC_API_URL || '').trim().replace(/\/+$/, '');
+  }
+
+  buildUrl(path) {
+    const base = this.baseUrl;
+    let cleanPath = path.startsWith('/') ? path : `/${path}`;
+
+    // If baseUrl already ends with /api and path starts with /api/, avoid duplicate /api/api
+    if (base.endsWith('/api') && cleanPath.startsWith('/api/')) {
+      cleanPath = cleanPath.slice(4);
+    }
+
+    return `${base}${cleanPath}`;
   }
 
   getToken() {
@@ -32,7 +40,7 @@ class ApiClient {
   }
 
   async request(path, options = {}) {
-    const url = `${this.baseUrl}${path}`;
+    const url = this.buildUrl(path);
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers,
@@ -80,7 +88,8 @@ class ApiClient {
     if (!refreshToken) return false;
 
     try {
-      const response = await fetch(`${this.baseUrl}/api/auth/refresh`, {
+      const url = this.buildUrl('/api/auth/refresh');
+      const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: refreshToken }),

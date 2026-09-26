@@ -8,7 +8,7 @@ RUN npm ci
 COPY . .
 
 # Build-time env vars — must be passed via --build-arg or docker compose
-ARG NEXT_PUBLIC_API_URL=http://localhost:8000
+ARG NEXT_PUBLIC_API_URL=""
 ARG NEXT_PUBLIC_APP_NAME="Laundry Bros"
 
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
