@@ -11,7 +11,9 @@ from app.core.database import get_db
 from app.api.dependencies import require_admin
 from app.models.user import User, UserRole
 from app.models.customer import Customer
-from app.models.order import Order, OrderItem, OrderStatus, PaymentStatus, OrderStatusHistory
+from app.models.order import (
+    Order, OrderItem, OrderStatus, PaymentStatus, OrderStatusHistory, VALID_TRANSITIONS
+)
 from app.models.service import Service, ServicePrice, PricingType
 from app.models.invoice import Invoice
 from app.models.inventory import InventoryItem
@@ -20,7 +22,9 @@ from app.schemas.service import (
     ServiceResponse, ServiceCreate, ServiceUpdate, PriceUpdate,
     ServicePriceResponse, ServicePriceHistory,
 )
-from app.schemas.order import OrderResponse, OrderListResponse, OrderItemResponse, CustomerResponse
+from app.schemas.order import (
+    OrderResponse, OrderListResponse, OrderItemResponse, CustomerResponse, OrderStatusUpdate
+)
 from app.schemas.inventory import (
     InventoryItemResponse, InventoryItemCreate, InventoryItemUpdate, InventoryStockUpdate,
 )
@@ -70,6 +74,35 @@ def get_dashboard(
     ).scalar()
     active_services = db.query(func.count(Service.id)).filter(Service.is_active == True).scalar()
 
+    recent_db_orders = db.query(Order).options(joinedload(Order.customer)).order_by(Order.created_at.desc()).limit(5).all()
+    recent_orders = [
+        {
+            "id": o.id,
+            "order_number": o.order_number,
+            "customer_name": o.customer.name,
+            "customer_phone": o.customer.phone,
+            "status": o.status.value,
+            "total": o.total,
+        }
+        for o in recent_db_orders
+    ]
+
+    # Payment modes for dashboard
+    payment_stats = (
+        db.query(
+            Invoice.payment_mode,
+            func.count(Invoice.id),
+        )
+        .filter(Invoice.created_at >= today_start, Invoice.payment_mode.isnot(None))
+        .group_by(Invoice.payment_mode)
+        .all()
+    )
+    
+    payment_modes = [
+        {"mode": mode if mode else "UNKNOWN", "count": count}
+        for mode, count in payment_stats
+    ]
+
     return DashboardMetrics(
         todays_orders=todays_orders,
         todays_revenue=Decimal(str(todays_revenue)),
@@ -81,6 +114,8 @@ def get_dashboard(
         total_customers=total_customers,
         low_stock_items=low_stock,
         active_services=active_services,
+        recent_orders=recent_orders,
+        payment_modes=payment_modes,
     )
 
 
@@ -131,10 +166,27 @@ def get_analytics(
         for name, count, revenue in service_stats
     ]
 
-    return DashboardAnalytics(
-        revenue_over_time=revenue_over_time,
-        service_popularity=service_popularity,
+    # Payment modes
+    payment_stats = (
+        db.query(
+            Invoice.payment_mode,
+            func.count(Invoice.id),
+        )
+        .filter(Invoice.created_at >= start_date, Invoice.payment_mode.isnot(None))
+        .group_by(Invoice.payment_mode)
+        .all()
     )
+    
+    payment_modes = [
+        {"mode": mode if mode else "UNKNOWN", "count": count}
+        for mode, count in payment_stats
+    ]
+
+    return {
+        "revenue_over_time": revenue_over_time,
+        "service_popularity": service_popularity,
+        "payment_modes": payment_modes
+    }
 
 
 # ─── Orders ──────────────────────────────────────────────────────────────────
@@ -150,7 +202,7 @@ def list_orders(
     db: Session = Depends(get_db),
 ):
     """List all orders with search and filters."""
-    query = db.query(Order).options(joinedload(Order.customer))
+    query = db.query(Order).options(joinedload(Order.customer), joinedload(Order.invoice))
 
     if search:
         search_term = f"%{search}%"
@@ -191,11 +243,49 @@ def list_orders(
             customer_phone=o.customer.phone,
             status=o.status.value,
             payment_status=o.payment_status.value,
+            payment_mode=o.invoice.payment_mode if o.invoice else None,
             total=o.total,
             created_at=o.created_at,
         )
         for o in orders
     ]
+
+
+@router.patch("/orders/{order_id}/status")
+def update_order_status(
+    order_id: int,
+    request: OrderStatusUpdate,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Admin updates order status."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    try:
+        new_status = OrderStatus(request.status)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    if new_status not in VALID_TRANSITIONS.get(order.status, []):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cannot transition from {order.status.value} to {request.status}",
+        )
+
+    order.status = new_status
+    history = OrderStatusHistory(
+        order_id=order.id,
+        status=new_status,
+        changed_by=admin.id,
+        notes=request.notes,
+    )
+    db.add(history)
+    db.commit()
+
+    log_action(db, f"Admin updated order {order.order_number} status to {request.status}", "Order", order.id, admin.id)
+    return {"message": f"Order status updated to {request.status}"}
 
 
 @router.get("/orders/{order_id}", response_model=OrderResponse)
@@ -220,6 +310,7 @@ def get_order(
         customer=CustomerResponse.model_validate(order.customer),
         status=order.status.value,
         payment_status=order.payment_status.value,
+        payment_mode=order.invoice.payment_mode if order.invoice else None,
         items=[OrderItemResponse.model_validate(item) for item in order.items],
         subtotal=order.subtotal,
         discount=order.discount,
@@ -231,45 +322,6 @@ def get_order(
     )
 
 
-@router.patch("/orders/{order_id}/status")
-def update_order_status_admin(
-    order_id: int,
-    status_update: dict,
-    admin: User = Depends(require_admin),
-    db: Session = Depends(get_db),
-):
-    """Admin can update order status."""
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-
-    new_status = status_update.get("status")
-    try:
-        new_status_enum = OrderStatus(new_status)
-    except (ValueError, KeyError):
-        raise HTTPException(status_code=400, detail="Invalid status")
-
-    from app.models.order import VALID_TRANSITIONS
-    if new_status_enum not in VALID_TRANSITIONS.get(order.status, []):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot transition from {order.status.value} to {new_status}",
-        )
-
-    order.status = new_status_enum
-    history = OrderStatusHistory(
-        order_id=order.id,
-        status=new_status_enum,
-        changed_by=admin.id,
-        notes=status_update.get("notes"),
-    )
-    db.add(history)
-    db.commit()
-
-    log_action(db, f"Changed order status to {new_status}", "Order", order.id, admin.id)
-
-    return {"message": f"Order status updated to {new_status}"}
-
 
 @router.patch("/orders/{order_id}/payment")
 def update_payment_status(
@@ -279,22 +331,23 @@ def update_payment_status(
     db: Session = Depends(get_db),
 ):
     """Update payment status."""
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
+    from app.services.payment_service import process_payment
+    
+    # Check if they are just setting it to PENDING manually
+    if payment_update.get("payment_status") == "PENDING":
+        order = db.query(Order).filter(Order.id == order_id).first()
+        order.payment_status = PaymentStatus.PENDING
+        db.commit()
+        return {"message": "Payment status updated to PENDING"}
+        
+    payment_mode = payment_update.get("payment_mode", "CASH")
+    discount_code = payment_update.get("discount_code")
+    
+    process_payment(db, order_id, payment_mode, discount_code)
+    
+    log_action(db, f"Processed payment via admin for order {order_id}", "Order", order_id, admin.id)
 
-    new_status = payment_update.get("payment_status")
-    try:
-        new_payment = PaymentStatus(new_status)
-    except (ValueError, KeyError):
-        raise HTTPException(status_code=400, detail="Invalid payment status")
-
-    order.payment_status = new_payment
-    db.commit()
-
-    log_action(db, f"Changed payment status to {new_status}", "Order", order.id, admin.id)
-
-    return {"message": f"Payment status updated to {new_status}"}
+    return {"message": f"Payment status updated to PAID"}
 
 
 # ─── Services & Pricing ─────────────────────────────────────────────────────
@@ -743,3 +796,42 @@ def update_worker(
     log_action(db, f"Updated worker: {worker.full_name}", "User", worker.id, admin.id)
 
     return {"message": "Worker updated successfully"}
+
+
+# ─── Settings ───────────────────────────────────────────────────────────────
+
+@router.get("/settings")
+def get_settings(
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    from app.models.settings import StoreSettings
+    settings = db.query(StoreSettings).first()
+    if not settings:
+        settings = StoreSettings(upi_id="store@upi", upi_name="Laundry Bros")
+        db.add(settings)
+        db.commit()
+        db.refresh(settings)
+    return {"upi_id": settings.upi_id, "upi_name": settings.upi_name}
+
+@router.patch("/settings")
+def update_settings(
+    settings_data: dict,
+    admin: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    from app.models.settings import StoreSettings
+    settings = db.query(StoreSettings).first()
+    if not settings:
+        settings = StoreSettings()
+        db.add(settings)
+    
+    if "upi_id" in settings_data:
+        settings.upi_id = settings_data["upi_id"]
+    if "upi_name" in settings_data:
+        settings.upi_name = settings_data["upi_name"]
+    
+    db.commit()
+    log_action(db, "Updated store settings", "StoreSettings", settings.id, admin.id)
+    return {"message": "Settings updated"}
+

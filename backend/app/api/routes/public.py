@@ -125,6 +125,7 @@ def get_bill(order_number: str, db: Session = Depends(get_db)):
         discount=invoice.discount,
         tax=invoice.tax,
         total=invoice.total,
+        payment_mode=invoice.payment_mode,
         payment_status=order.payment_status.value,
         order_status=order.status.value,
         created_at=invoice.created_at,

@@ -5,3 +5,4 @@ from app.models.order import Order, OrderItem, OrderStatus, OrderStatusHistory, 
 from app.models.invoice import Invoice
 from app.models.inventory import InventoryItem
 from app.models.audit import AuditLog
+from app.models.settings import StoreSettings

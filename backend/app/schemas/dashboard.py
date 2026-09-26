@@ -16,6 +16,8 @@ class DashboardMetrics(BaseModel):
     total_customers: int
     low_stock_items: int
     active_services: int
+    recent_orders: List[dict] = []
+    payment_modes: List[dict] = []
 
 
 class RevenueDataPoint(BaseModel):
@@ -33,6 +35,7 @@ class ServicePopularity(BaseModel):
 class DashboardAnalytics(BaseModel):
     revenue_over_time: List[RevenueDataPoint]
     service_popularity: List[ServicePopularity]
+    payment_modes: List[dict] = []
 
 
 class WorkerDashboardMetrics(BaseModel):

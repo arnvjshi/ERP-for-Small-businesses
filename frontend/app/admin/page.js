@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { api } from '@/lib/api';
-import { formatCurrency, formatStatus, getStatusColor, formatDate } from '@/lib/utils';
+import { formatCurrency, formatStatus, getStatusColor, formatDate, cn } from '@/lib/utils';
 import { 
   IndianRupee, ShoppingBag, Clock, CheckCircle2, AlertCircle, TrendingUp, Users 
 } from 'lucide-react';
@@ -157,6 +157,21 @@ export default function AdminDashboard() {
             <div className="flex items-center gap-2 text-sm font-medium text-emerald-400">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
               All Services Operational
+            </div>
+          </div>
+          
+          <div className="card p-6 border-none bg-emerald-50">
+            <h2 className="text-lg font-semibold text-emerald-900 mb-4">Payment Breakdown</h2>
+            <div className="space-y-3">
+              {metrics?.payment_modes?.map((pm) => (
+                <div key={pm.mode} className="flex justify-between items-center bg-white p-3 rounded-lg border border-emerald-100 shadow-sm">
+                  <span className="font-medium text-emerald-800">{pm.mode}</span>
+                  <span className="text-emerald-600 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-full text-sm">{pm.count} orders</span>
+                </div>
+              ))}
+              {(!metrics?.payment_modes || metrics.payment_modes.length === 0) && (
+                <p className="text-sm text-emerald-700">No payment data yet.</p>
+              )}
             </div>
           </div>
         </div>

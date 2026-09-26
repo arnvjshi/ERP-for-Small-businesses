@@ -68,6 +68,7 @@ class OrderResponse(BaseModel):
     customer: CustomerResponse
     status: str
     payment_status: str
+    payment_mode: Optional[str] = None
     items: List[OrderItemResponse]
     subtotal: Decimal
     discount: Decimal
@@ -88,6 +89,7 @@ class OrderListResponse(BaseModel):
     customer_phone: str
     status: str
     payment_status: str
+    payment_mode: Optional[str] = None
     total: Decimal
     created_at: datetime
 

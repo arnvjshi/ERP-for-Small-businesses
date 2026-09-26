@@ -79,7 +79,7 @@
   }
 
   .metric-card {
-    @apply card p-5;
+    @apply bg-white rounded-xl border border-gray-100 shadow-sm p-5;
   }
 
   .section-title {

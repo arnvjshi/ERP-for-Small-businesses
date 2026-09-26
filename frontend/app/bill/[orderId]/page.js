@@ -86,16 +86,22 @@ export default function BillPage() {
         <div className="px-8 sm:px-12 py-8 grid sm:grid-cols-2 gap-8">
           <div>
             <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Billed To</h3>
-            <p className="text-base font-semibold text-gray-900">{bill.customer.name}</p>
-            <p className="text-sm text-gray-600 mt-1">{bill.customer.phone}</p>
-            {bill.customer.email && <p className="text-sm text-gray-600">{bill.customer.email}</p>}
+            <p className="text-base font-semibold text-gray-900">{bill.customer_name}</p>
+            <p className="text-sm text-gray-600 mt-1">{bill.customer_phone}</p>
           </div>
           <div className="sm:text-right">
             <div className="mb-4">
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Payment Status</h3>
-              <span className={cn('px-3 py-1 rounded-md text-xs font-semibold inline-block', getPaymentColor(bill.payment_status))}>
-                {formatStatus(bill.payment_status)}
-              </span>
+              <div className="flex items-center gap-2 justify-end sm:justify-end">
+                <span className={cn('px-3 py-1 rounded-md text-xs font-semibold inline-block', getPaymentColor(bill.payment_status))}>
+                  {formatStatus(bill.payment_status)}
+                </span>
+                {bill.payment_status === 'PAID' && bill.payment_mode && (
+                  <span className="text-xs font-semibold text-gray-600 bg-gray-100 px-2 py-1 rounded-md">
+                    {bill.payment_mode}
+                  </span>
+                )}
+              </div>
             </div>
             <div>
               <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Order Status</h3>

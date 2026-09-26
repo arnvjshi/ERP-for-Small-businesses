@@ -17,6 +17,7 @@ class Invoice(Base):
     discount = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     tax = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     total = Column(Numeric(12, 2), nullable=False, default=Decimal("0.00"))
+    payment_mode = Column(String(50), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 

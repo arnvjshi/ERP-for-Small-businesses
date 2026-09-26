@@ -59,7 +59,7 @@ def list_worker_orders(
     db: Session = Depends(get_db),
 ):
     """List orders for workers. Prioritizes actionable orders."""
-    query = db.query(Order).options(joinedload(Order.customer))
+    query = db.query(Order).options(joinedload(Order.customer), joinedload(Order.invoice))
 
     if search:
         search_term = f"%{search}%"
@@ -94,6 +94,7 @@ def list_worker_orders(
             customer_phone=o.customer.phone,
             status=o.status.value,
             payment_status=o.payment_status.value,
+            payment_mode=o.invoice.payment_mode if o.invoice else None,
             total=o.total,
             created_at=o.created_at,
         )
@@ -110,7 +111,7 @@ def get_worker_order(
     """Get order details for worker."""
     order = (
         db.query(Order)
-        .options(joinedload(Order.customer), joinedload(Order.items))
+        .options(joinedload(Order.customer), joinedload(Order.items), joinedload(Order.invoice))
         .filter(Order.id == order_id)
         .first()
     )
@@ -123,6 +124,7 @@ def get_worker_order(
         customer=CustomerResponse.model_validate(order.customer),
         status=order.status.value,
         payment_status=order.payment_status.value,
+        payment_mode=order.invoice.payment_mode if order.invoice else None,
         items=[OrderItemResponse.model_validate(item) for item in order.items],
         subtotal=order.subtotal,
         discount=order.discount,
@@ -173,3 +175,25 @@ def update_order_status(
     )
 
     return {"message": f"Order status updated to {request.status}"}
+
+@router.post("/orders/{order_id}/pay")
+def process_order_payment(
+    order_id: int,
+    payment_data: dict,
+    worker: User = Depends(require_worker),
+    db: Session = Depends(get_db),
+):
+    """Process payment and apply discount code."""
+    from app.services.payment_service import process_payment
+    payment_mode = payment_data.get("payment_mode", "CASH")
+    discount_code = payment_data.get("discount_code")
+    
+    order = process_payment(db, order_id, payment_mode, discount_code)
+    
+    log_action(
+        db, f"Processed payment for order {order.order_number}",
+        "Order", order.id, worker.id,
+    )
+    
+    return {"message": "Payment successful"}
+

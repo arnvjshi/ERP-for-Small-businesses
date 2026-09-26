@@ -248,6 +248,31 @@ class ApiClient {
     });
   }
 
+  async getSettings() {
+    return this.request('/api/admin/settings');
+  }
+
+  async updateSettings(settingsData) {
+    return this.request('/api/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify(settingsData),
+    });
+  }
+
+  async processPayment(orderId, paymentData) {
+    return this.request(`/api/admin/orders/${orderId}/payment`, {
+      method: 'PATCH',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
+  async processWorkerPayment(orderId, paymentData) {
+    return this.request(`/api/worker/orders/${orderId}/pay`, {
+      method: 'POST',
+      body: JSON.stringify(paymentData),
+    });
+  }
+
   // ─── Worker ────────────────────────────────────────────────────────
   async getWorkerDashboard() {
     return this.request('/api/worker/dashboard');

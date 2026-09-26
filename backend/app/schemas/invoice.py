@@ -29,6 +29,7 @@ class InvoiceResponse(BaseModel):
     discount: Decimal
     tax: Decimal
     total: Decimal
+    payment_mode: Optional[str] = None
     payment_status: str
     order_status: str
     created_at: datetime
