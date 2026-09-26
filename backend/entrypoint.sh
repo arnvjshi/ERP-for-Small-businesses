@@ -1,8 +1,11 @@
 #!/bin/bash
 set -e
 
-echo "Running database migrations..."
-alembic upgrade head
+echo "Ensuring database tables exist..."
+python -c "from app.core.database import engine, Base; import app.models; Base.metadata.create_all(bind=engine)"
+
+echo "Stamping alembic migration head..."
+alembic stamp head || true
 
 echo "Seeding database..."
 python -m app.seed

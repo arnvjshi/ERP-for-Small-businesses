@@ -61,8 +61,7 @@ def seed():
             role=UserRole.WORKER,
         )
         db.add_all([admin, worker1, worker2])
-        db.flush()
-        print("  ✓ Created users (admin, worker1, worker2)")
+        print("  [+] Created users (admin, worker1, worker2)")
 
         # ─── Services ────────────────────────────────────────────────────
         washing = Service(
@@ -96,7 +95,7 @@ def seed():
         services = [washing, ironing, dc_shirt, dc_trousers, dc_jacket, dc_suit, dc_dress]
         db.add_all(services)
         db.flush()
-        print("  ✓ Created services")
+        print("  [+] Created services")
 
         # ─── Pricing (seed defaults) ─────────────────────────────────────
         prices = [
@@ -110,7 +109,7 @@ def seed():
         ]
         db.add_all(prices)
         db.flush()
-        print("  ✓ Created pricing (seed defaults)")
+        print("  [+] Created pricing (seed defaults)")
 
         # ─── Inventory ────────────────────────────────────────────────────
         inventory = [
@@ -123,7 +122,7 @@ def seed():
         ]
         db.add_all(inventory)
         db.flush()
-        print("  ✓ Created inventory items")
+        print("  [+] Created inventory items")
 
         db.commit()
 
@@ -137,7 +136,7 @@ def seed():
                 {"service_id": ironing.id, "quantity": "5"},
             ],
         )
-        print(f"  ✓ Created order {order1.order_number} (₹{order1.total})")
+        print(f"  [+] Created order {order1.order_number} (Rs.{order1.total})")
 
         # Order 2: Dry cleaning
         order2 = create_order_with_billing(
@@ -148,7 +147,7 @@ def seed():
                 {"service_id": dc_trousers.id, "quantity": "2"},
             ],
         )
-        print(f"  ✓ Created order {order2.order_number} (₹{order2.total})")
+        print(f"  [+] Created order {order2.order_number} (Rs.{order2.total})")
 
         # Order 3: Small washing (should hit minimum charge)
         order3 = create_order_with_billing(
@@ -158,7 +157,7 @@ def seed():
                 {"service_id": washing.id, "quantity": "0.5"},
             ],
         )
-        print(f"  ✓ Created order {order3.order_number} (₹{order3.total} — minimum charge applied)")
+        print(f"  [+] Created order {order3.order_number} (Rs.{order3.total} - minimum charge applied)")
 
         # Order 4: Combined services
         order4 = create_order_with_billing(
@@ -170,7 +169,7 @@ def seed():
                 {"service_id": dc_suit.id, "quantity": "1"},
             ],
         )
-        print(f"  ✓ Created order {order4.order_number} (₹{order4.total})")
+        print(f"  [+] Created order {order4.order_number} (Rs.{order4.total})")
 
         # Order 5: Another customer
         order5 = create_order_with_billing(
@@ -181,7 +180,7 @@ def seed():
                 {"service_id": dc_jacket.id, "quantity": "1"},
             ],
         )
-        print(f"  ✓ Created order {order5.order_number} (₹{order5.total})")
+        print(f"  [+] Created order {order5.order_number} (Rs.{order5.total})")
 
         # Update some order statuses
         order1.status = OrderStatus.IN_PROGRESS
@@ -201,17 +200,17 @@ def seed():
         db.add(OrderStatusHistory(order_id=order3.id, status=OrderStatus.COMPLETED, changed_by=worker1.id))
 
         db.commit()
-        print("  ✓ Updated order statuses")
+        print("  [+] Updated order statuses")
 
-        print("\n✅ Database seeded successfully!")
-        print("\n── Development Credentials ──")
+        print("\n=== Database seeded successfully! ===")
+        print("\n-- Development Credentials --")
         print("  Admin:   admin / admin123")
         print("  Worker1: worker1 / worker123")
         print("  Worker2: worker2 / worker123")
 
     except Exception as e:
         db.rollback()
-        print(f"\n❌ Error seeding database: {e}")
+        print(f"\n[!] Error seeding database: {e}")
         raise
     finally:
         db.close()

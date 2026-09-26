@@ -10,16 +10,17 @@ services:
     ports:
       - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-laundrybros}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-laundrybros} -d ${POSTGRES_DB:-laundrybros}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   backend:
     build: ./backend
+    entrypoint: ["/bin/bash", "/app/entrypoint.sh"]
     environment:
       ENVIRONMENT: development
-      DATABASE_URL: postgresql://${POSTGRES_USER:-laundrybros}:${POSTGRES_PASSWORD:-laundrybros_dev_password}@postgres:5432/${POSTGRES_DB:-laundrybros}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-laundrybros}:${POSTGRES_PASSWORD:-laundrybros_dev_password}@postgres:5432/${POSTGRES_DB:-laundrybros}}
       JWT_SECRET: ${JWT_SECRET:-dev-secret-change-in-production-abc123xyz}
       JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-60}
